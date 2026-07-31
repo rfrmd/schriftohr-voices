@@ -1,0 +1,54 @@
+program(1.0)
+[buildInfo = dict<tensor<string, []>, tensor<string, []>>({{"coremlc-component-MIL", "3520.4.1"}, {"coremlc-version", "3520.5.1"}})]
+{
+    func main<ios17>(tensor<fp16, [1, ?, 640]> d, tensor<int32, [1, ?]> pred_dur, tensor<fp16, [1, 512, ?]> t_en) [FlexibleShapeInformation = tuple<tuple<tensor<string, []>, dict<tensor<string, []>, tensor<int32, [?]>>>, tuple<tensor<string, []>, dict<tensor<string, []>, list<tensor<int32, [2]>, ?>>>>((("DefaultShapes", {{"d", [1, 48, 640]}, {"pred_dur", [1, 48]}, {"t_en", [1, 512, 48]}}), ("RangeDims", {{"d", [[1, 1], [2, 512], [640, 640]]}, {"pred_dur", [[1, 1], [2, 512]]}, {"t_en", [[1, 1], [512, 512], [2, 512]]}})))] {
+            tensor<int32, []> var_19 = const()[name = tensor<string, []>("op_19"), val = tensor<int32, []>(-1)];
+            tensor<bool, []> cum_dur_exclusive_0 = const()[name = tensor<string, []>("cum_dur_exclusive_0"), val = tensor<bool, []>(false)];
+            tensor<bool, []> cum_dur_reverse_0 = const()[name = tensor<string, []>("cum_dur_reverse_0"), val = tensor<bool, []>(false)];
+            tensor<string, []> dur_to_fp16_dtype_0 = const()[name = tensor<string, []>("dur_to_fp16_dtype_0"), val = tensor<string, []>("fp16")];
+            tensor<fp16, [1, ?]> pred_dur_to_fp16 = cast(dtype = dur_to_fp16_dtype_0, x = pred_dur)[name = tensor<string, []>("cast_3")];
+            tensor<fp16, [1, ?]> cum_dur_cast_fp16 = cumsum(axis = var_19, exclusive = cum_dur_exclusive_0, reverse = cum_dur_reverse_0, x = pred_dur_to_fp16)[name = tensor<string, []>("cum_dur_cast_fp16")];
+            tensor<fp16, [1, ?]> starts_cast_fp16 = sub(x = cum_dur_cast_fp16, y = pred_dur_to_fp16)[name = tensor<string, []>("starts_cast_fp16")];
+            tensor<int32, [1]> var_40_axes_0 = const()[name = tensor<string, []>("op_40_axes_0"), val = tensor<int32, [1]>([-1])];
+            tensor<fp16, [1, ?, 1]> var_40_cast_fp16 = expand_dims(axes = var_40_axes_0, x = starts_cast_fp16)[name = tensor<string, []>("op_40_cast_fp16")];
+            tensor<fp16, [1, 1, 2000]> frames_to_fp16 = const()[name = tensor<string, []>("frames_to_fp16"), val = tensor<fp16, [1, 1, 2000]>(BLOBFILE(path = tensor<string, []>("@model_path/weights/weight.bin"), offset = tensor<uint64, []>(64)))];
+            tensor<bool, [1, ?, 2000]> var_41_cast_fp16 = greater_equal(x = frames_to_fp16, y = var_40_cast_fp16)[name = tensor<string, []>("op_41_cast_fp16")];
+            tensor<int32, [1]> var_43_axes_0 = const()[name = tensor<string, []>("op_43_axes_0"), val = tensor<int32, [1]>([-1])];
+            tensor<fp16, [1, ?, 1]> var_43_cast_fp16 = expand_dims(axes = var_43_axes_0, x = cum_dur_cast_fp16)[name = tensor<string, []>("op_43_cast_fp16")];
+            tensor<bool, [1, ?, 2000]> var_44_cast_fp16 = less(x = frames_to_fp16, y = var_43_cast_fp16)[name = tensor<string, []>("op_44_cast_fp16")];
+            tensor<bool, [1, ?, 2000]> var_45 = logical_and(x = var_41_cast_fp16, y = var_44_cast_fp16)[name = tensor<string, []>("op_45")];
+            tensor<bool, []> en_transpose_x_1 = const()[name = tensor<string, []>("en_transpose_x_1"), val = tensor<bool, []>(true)];
+            tensor<bool, []> en_transpose_y_1 = const()[name = tensor<string, []>("en_transpose_y_1"), val = tensor<bool, []>(false)];
+            tensor<string, []> alignment_to_fp16_dtype_0 = const()[name = tensor<string, []>("alignment_to_fp16_dtype_0"), val = tensor<string, []>("fp16")];
+            tensor<fp16, [1, ?, 2000]> var_45_to_fp16 = cast(dtype = alignment_to_fp16_dtype_0, x = var_45)[name = tensor<string, []>("cast_2")];
+            tensor<fp16, [1, 640, 2000]> en_cast_fp16 = matmul(transpose_x = en_transpose_x_1, transpose_y = en_transpose_y_1, x = d, y = var_45_to_fp16)[name = tensor<string, []>("en_cast_fp16")];
+            tensor<bool, []> asr_transpose_x_0 = const()[name = tensor<string, []>("asr_transpose_x_0"), val = tensor<bool, []>(false)];
+            tensor<bool, []> asr_transpose_y_0 = const()[name = tensor<string, []>("asr_transpose_y_0"), val = tensor<bool, []>(false)];
+            tensor<fp16, [1, 512, 2000]> asr_cast_fp16 = matmul(transpose_x = asr_transpose_x_0, transpose_y = asr_transpose_y_0, x = t_en, y = var_45_to_fp16)[name = tensor<string, []>("asr_cast_fp16")];
+            tensor<int32, [2]> var_65_begin_0 = const()[name = tensor<string, []>("op_65_begin_0"), val = tensor<int32, [2]>([0, -1])];
+            tensor<int32, [2]> var_65_end_0 = const()[name = tensor<string, []>("op_65_end_0"), val = tensor<int32, [2]>([1, 0])];
+            tensor<bool, [2]> var_65_end_mask_0 = const()[name = tensor<string, []>("op_65_end_mask_0"), val = tensor<bool, [2]>([true, true])];
+            tensor<fp16, [1, 1]> var_65_cast_fp16 = slice_by_index(begin = var_65_begin_0, end = var_65_end_0, end_mask = var_65_end_mask_0, x = cum_dur_cast_fp16)[name = tensor<string, []>("op_65_cast_fp16")];
+            tensor<string, []> var_70_to_int16_dtype_0 = const()[name = tensor<string, []>("op_70_to_int16_dtype_0"), val = tensor<string, []>("int16")];
+            tensor<int16, [1, 1]> var_65_cast_fp16_to_int16 = cast(dtype = var_70_to_int16_dtype_0, x = var_65_cast_fp16)[name = tensor<string, []>("cast_1")];
+            tensor<int16, []> T_a_cast_int16 = squeeze(x = var_65_cast_fp16_to_int16)[name = tensor<string, []>("T_a_cast_int16")];
+            tensor<string, []> T_a_cast_int16_to_int32_dtype_0 = const()[name = tensor<string, []>("T_a_cast_int16_to_int32_dtype_0"), val = tensor<string, []>("int32")];
+            tensor<int32, []> concat_0_values0_0 = const()[name = tensor<string, []>("concat_0_values0_0"), val = tensor<int32, []>(1)];
+            tensor<int32, []> concat_0_values1_0 = const()[name = tensor<string, []>("concat_0_values1_0"), val = tensor<int32, []>(640)];
+            tensor<int32, []> concat_0_axis_0 = const()[name = tensor<string, []>("concat_0_axis_0"), val = tensor<int32, []>(0)];
+            tensor<bool, []> concat_0_interleave_0 = const()[name = tensor<string, []>("concat_0_interleave_0"), val = tensor<bool, []>(false)];
+            tensor<int32, []> T_a_cast_int16_to_int32 = cast(dtype = T_a_cast_int16_to_int32_dtype_0, x = T_a_cast_int16)[name = tensor<string, []>("cast_0")];
+            tensor<int32, [3]> concat_0 = concat(axis = concat_0_axis_0, interleave = concat_0_interleave_0, values = (concat_0_values0_0, concat_0_values1_0, T_a_cast_int16_to_int32))[name = tensor<string, []>("concat_0")];
+            tensor<int32, [3]> var_87_begin_0 = const()[name = tensor<string, []>("op_87_begin_0"), val = tensor<int32, [3]>([0, 0, 0])];
+            tensor<bool, [3]> var_87_end_mask_0 = const()[name = tensor<string, []>("op_87_end_mask_0"), val = tensor<bool, [3]>([true, true, false])];
+            tensor<fp16, [1, 640, ?]> en = slice_by_index(begin = var_87_begin_0, end = concat_0, end_mask = var_87_end_mask_0, x = en_cast_fp16)[name = tensor<string, []>("op_87_cast_fp16")];
+            tensor<int32, []> concat_1_values0_0 = const()[name = tensor<string, []>("concat_1_values0_0"), val = tensor<int32, []>(1)];
+            tensor<int32, []> concat_1_values1_0 = const()[name = tensor<string, []>("concat_1_values1_0"), val = tensor<int32, []>(512)];
+            tensor<int32, []> concat_1_axis_0 = const()[name = tensor<string, []>("concat_1_axis_0"), val = tensor<int32, []>(0)];
+            tensor<bool, []> concat_1_interleave_0 = const()[name = tensor<string, []>("concat_1_interleave_0"), val = tensor<bool, []>(false)];
+            tensor<int32, [3]> concat_1 = concat(axis = concat_1_axis_0, interleave = concat_1_interleave_0, values = (concat_1_values0_0, concat_1_values1_0, T_a_cast_int16_to_int32))[name = tensor<string, []>("concat_1")];
+            tensor<int32, [3]> var_101_begin_0 = const()[name = tensor<string, []>("op_101_begin_0"), val = tensor<int32, [3]>([0, 0, 0])];
+            tensor<bool, [3]> var_101_end_mask_0 = const()[name = tensor<string, []>("op_101_end_mask_0"), val = tensor<bool, [3]>([true, true, false])];
+            tensor<fp16, [1, 512, ?]> asr = slice_by_index(begin = var_101_begin_0, end = concat_1, end_mask = var_101_end_mask_0, x = asr_cast_fp16)[name = tensor<string, []>("op_101_cast_fp16")];
+        } -> (en, asr);
+}

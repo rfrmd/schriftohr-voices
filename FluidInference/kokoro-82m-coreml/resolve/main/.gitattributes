@@ -1,0 +1,2 @@
+# Upstream declared Hugging Face LFS filters here; this mirror stores
+# every file as a plain git blob (largest is 48 MB), so no filters.

@@ -1,0 +1,47 @@
+program(1.0)
+[buildInfo = dict<tensor<string, []>, tensor<string, []>>({{"coremlc-component-MIL", "3520.4.1"}, {"coremlc-version", "3520.5.1"}, {"coremltools-component-torch", "2.11.0"}, {"coremltools-source-dialect", "TorchScript"}, {"coremltools-version", "9.0"}})]
+{
+    func main<ios17>(tensor<fp32, [1, 128, ?]> x_pre) [FlexibleShapeInformation = tuple<tuple<tensor<string, []>, dict<tensor<string, []>, tensor<int32, [?]>>>, tuple<tensor<string, []>, dict<tensor<string, []>, list<tensor<int32, [2]>, ?>>>>((("DefaultShapes", {{"x_pre", [1, 128, 14401]}}), ("RangeDims", {{"x_pre", [[1, 1], [128, 128], [100, 240001]]}})))] {
+            tensor<fp32, [22]> conv_post_bias = const()[name = tensor<string, []>("conv_post_bias"), val = tensor<fp32, [22]>(BLOBFILE(path = tensor<string, []>("@model_path/weights/weight.bin"), offset = tensor<uint64, []>(64)))];
+            tensor<fp32, [11, 1, 20]> stft_deconv_real_weight = const()[name = tensor<string, []>("stft_deconv_real_weight"), val = tensor<fp32, [11, 1, 20]>(BLOBFILE(path = tensor<string, []>("@model_path/weights/weight.bin"), offset = tensor<uint64, []>(256)))];
+            tensor<fp32, [11, 1, 20]> stft_deconv_imag_weight = const()[name = tensor<string, []>("stft_deconv_imag_weight"), val = tensor<fp32, [11, 1, 20]>(BLOBFILE(path = tensor<string, []>("@model_path/weights/weight.bin"), offset = tensor<uint64, []>(1216)))];
+            tensor<fp32, [22, 128, 7]> weight_1 = const()[name = tensor<string, []>("weight_1"), val = tensor<fp32, [22, 128, 7]>(BLOBFILE(path = tensor<string, []>("@model_path/weights/weight.bin"), offset = tensor<uint64, []>(2176)))];
+            tensor<string, []> x_pad_type_0 = const()[name = tensor<string, []>("x_pad_type_0"), val = tensor<string, []>("custom")];
+            tensor<int32, [2]> x_pad_0 = const()[name = tensor<string, []>("x_pad_0"), val = tensor<int32, [2]>([3, 3])];
+            tensor<int32, [1]> x_strides_0 = const()[name = tensor<string, []>("x_strides_0"), val = tensor<int32, [1]>([1])];
+            tensor<int32, [1]> x_dilations_0 = const()[name = tensor<string, []>("x_dilations_0"), val = tensor<int32, [1]>([1])];
+            tensor<int32, []> x_groups_0 = const()[name = tensor<string, []>("x_groups_0"), val = tensor<int32, []>(1)];
+            tensor<fp32, [1, 22, ?]> x = conv(bias = conv_post_bias, dilations = x_dilations_0, groups = x_groups_0, pad = x_pad_0, pad_type = x_pad_type_0, strides = x_strides_0, weight = weight_1, x = x_pre)[name = tensor<string, []>("x")];
+            tensor<int32, [3]> var_33_begin_0 = const()[name = tensor<string, []>("op_33_begin_0"), val = tensor<int32, [3]>([0, 0, 0])];
+            tensor<int32, [3]> var_33_end_0 = const()[name = tensor<string, []>("op_33_end_0"), val = tensor<int32, [3]>([1, 11, 0])];
+            tensor<bool, [3]> var_33_end_mask_0 = const()[name = tensor<string, []>("op_33_end_mask_0"), val = tensor<bool, [3]>([true, false, true])];
+            tensor<fp32, [1, 11, ?]> var_33 = slice_by_index(begin = var_33_begin_0, end = var_33_end_0, end_mask = var_33_end_mask_0, x = x)[name = tensor<string, []>("op_33")];
+            tensor<fp32, [1, 11, ?]> magnitude = exp(x = var_33)[name = tensor<string, []>("magnitude")];
+            tensor<int32, [3]> var_49_begin_0 = const()[name = tensor<string, []>("op_49_begin_0"), val = tensor<int32, [3]>([0, 11, 0])];
+            tensor<int32, [3]> var_49_end_0 = const()[name = tensor<string, []>("op_49_end_0"), val = tensor<int32, [3]>([1, 22, 0])];
+            tensor<bool, [3]> var_49_end_mask_0 = const()[name = tensor<string, []>("op_49_end_mask_0"), val = tensor<bool, [3]>([true, true, true])];
+            tensor<fp32, [1, 11, ?]> var_49 = slice_by_index(begin = var_49_begin_0, end = var_49_end_0, end_mask = var_49_end_mask_0, x = x)[name = tensor<string, []>("op_49")];
+            tensor<fp32, [1, 11, ?]> phase = sin(x = var_49)[name = tensor<string, []>("phase")];
+            tensor<fp32, [1, 11, ?]> var_56 = cos(x = phase)[name = tensor<string, []>("op_56")];
+            tensor<fp32, [1, 11, ?]> input_1 = mul(x = magnitude, y = var_56)[name = tensor<string, []>("input_1")];
+            tensor<fp32, [1, 11, ?]> var_58 = sin(x = phase)[name = tensor<string, []>("op_58")];
+            tensor<fp32, [1, 11, ?]> input = mul(x = magnitude, y = var_58)[name = tensor<string, []>("input")];
+            tensor<string, []> var_71_pad_type_0 = const()[name = tensor<string, []>("op_71_pad_type_0"), val = tensor<string, []>("valid")];
+            tensor<int32, [1]> var_71_strides_0 = const()[name = tensor<string, []>("op_71_strides_0"), val = tensor<int32, [1]>([5])];
+            tensor<int32, [2]> var_71_pad_0 = const()[name = tensor<string, []>("op_71_pad_0"), val = tensor<int32, [2]>([0, 0])];
+            tensor<int32, [1]> var_71_dilations_0 = const()[name = tensor<string, []>("op_71_dilations_0"), val = tensor<int32, [1]>([1])];
+            tensor<int32, []> var_71_groups_0 = const()[name = tensor<string, []>("op_71_groups_0"), val = tensor<int32, []>(1)];
+            tensor<fp32, [1, 1, ?]> var_71 = conv_transpose(dilations = var_71_dilations_0, groups = var_71_groups_0, pad = var_71_pad_0, pad_type = var_71_pad_type_0, strides = var_71_strides_0, weight = stft_deconv_real_weight, x = input_1)[name = tensor<string, []>("op_71")];
+            tensor<string, []> var_83_pad_type_0 = const()[name = tensor<string, []>("op_83_pad_type_0"), val = tensor<string, []>("valid")];
+            tensor<int32, [1]> var_83_strides_0 = const()[name = tensor<string, []>("op_83_strides_0"), val = tensor<int32, [1]>([5])];
+            tensor<int32, [2]> var_83_pad_0 = const()[name = tensor<string, []>("op_83_pad_0"), val = tensor<int32, [2]>([0, 0])];
+            tensor<int32, [1]> var_83_dilations_0 = const()[name = tensor<string, []>("op_83_dilations_0"), val = tensor<int32, [1]>([1])];
+            tensor<int32, []> var_83_groups_0 = const()[name = tensor<string, []>("op_83_groups_0"), val = tensor<int32, []>(1)];
+            tensor<fp32, [1, 1, ?]> var_83 = conv_transpose(dilations = var_83_dilations_0, groups = var_83_groups_0, pad = var_83_pad_0, pad_type = var_83_pad_type_0, strides = var_83_strides_0, weight = stft_deconv_imag_weight, x = input)[name = tensor<string, []>("op_83")];
+            tensor<fp32, [1, 1, ?]> waveform = sub(x = var_71, y = var_83)[name = tensor<string, []>("waveform")];
+            tensor<int32, [3]> var_90_begin_0 = const()[name = tensor<string, []>("op_90_begin_0"), val = tensor<int32, [3]>([0, 0, 10])];
+            tensor<int32, [3]> var_90_end_0 = const()[name = tensor<string, []>("op_90_end_0"), val = tensor<int32, [3]>([1, 1, -10])];
+            tensor<bool, [3]> var_90_end_mask_0 = const()[name = tensor<string, []>("op_90_end_mask_0"), val = tensor<bool, [3]>([true, true, false])];
+            tensor<fp32, [1, 1, ?]> audio = slice_by_index(begin = var_90_begin_0, end = var_90_end_0, end_mask = var_90_end_mask_0, x = waveform)[name = tensor<string, []>("op_90")];
+        } -> (audio);
+}

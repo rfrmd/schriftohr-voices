@@ -1,0 +1,107 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "storagePrecision" : "Float16",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float16",
+        "formattedType" : "MultiArray (Float16)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "en",
+        "type" : "MultiArray"
+      },
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float16",
+        "formattedType" : "MultiArray (Float16)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "asr",
+        "type" : "MultiArray"
+      }
+    ],
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 8,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios17.squeeze" : 1,
+      "Ios16.cumsum" : 1,
+      "Ios17.logicalAnd" : 1,
+      "Ios17.cast" : 4,
+      "Ios17.less" : 1,
+      "Ios17.matmul" : 2,
+      "Ios17.sliceByIndex" : 3,
+      "Ios17.concat" : 2,
+      "Ios17.greaterEqual" : 1,
+      "Ios17.sub" : 1,
+      "Ios17.expandDims" : 2
+    },
+    "computePrecision" : "Mixed (Float16, Int16, Int32)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "14.0",
+      "tvOS" : "17.0",
+      "visionOS" : "1.0",
+      "watchOS" : "10.0",
+      "iOS" : "17.0",
+      "macCatalyst" : "17.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-04-27",
+      "com.github.apple.coremltools.source" : "torch==2.11.0",
+      "com.github.apple.coremltools.version" : "9.0",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 2...512",
+        "shapeRange" : "[[1, 1], [2, 512]]",
+        "formattedType" : "MultiArray (Int32 1 × 48)",
+        "type" : "MultiArray",
+        "shape" : "[1, 48]",
+        "name" : "pred_dur",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Float16",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 2...512 × 640",
+        "shapeRange" : "[[1, 1], [2, 512], [640, 640]]",
+        "formattedType" : "MultiArray (Float16 1 × 48 × 640)",
+        "type" : "MultiArray",
+        "shape" : "[1, 48, 640]",
+        "name" : "d",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Float16",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 512 × 2...512",
+        "shapeRange" : "[[1, 1], [512, 512], [2, 512]]",
+        "formattedType" : "MultiArray (Float16 1 × 512 × 48)",
+        "type" : "MultiArray",
+        "shape" : "[1, 512, 48]",
+        "name" : "t_en",
+        "shortDescription" : ""
+      }
+    ],
+    "generatedClassName" : "KokoroAlignment",
+    "method" : "predict"
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "metadataOutputVersion" : "3.0",
+    "storagePrecision" : "Mixed (Float16, Palettized (8 bits))",
+    "outputSchema" : [
+      {
+        "hasShapeFlexibility" : "0",
+        "isOptional" : "0",
+        "dataType" : "Float16",
+        "formattedType" : "MultiArray (Float16)",
+        "shortDescription" : "",
+        "shape" : "[]",
+        "name" : "bert_dur",
+        "type" : "MultiArray"
+      }
+    ],
+    "modelParameters" : [
+
+    ],
+    "specificationVersion" : 8,
+    "mlProgramOperationTypeHistogram" : {
+      "Ios17.mul" : 13,
+      "Ios17.linear" : 73,
+      "Ios17.transpose" : 48,
+      "Ios17.sub" : 2,
+      "Ios16.constexprLutToDense" : 9,
+      "Range1d" : 1,
+      "Ios17.matmul" : 24,
+      "Shape" : 1,
+      "Ios17.gather" : 4,
+      "Ios17.add" : 38,
+      "Ios16.softmax" : 12,
+      "Ios17.expandDims" : 3,
+      "Ios16.gelu" : 12,
+      "Ios17.cast" : 6,
+      "Ios17.layerNorm" : 25,
+      "Ios17.reshape" : 48
+    },
+    "computePrecision" : "Mixed (Float16, Int16, Int32, UInt16)",
+    "isUpdatable" : "0",
+    "stateSchema" : [
+
+    ],
+    "availability" : {
+      "macOS" : "14.0",
+      "tvOS" : "17.0",
+      "visionOS" : "1.0",
+      "watchOS" : "10.0",
+      "iOS" : "17.0",
+      "macCatalyst" : "17.0"
+    },
+    "modelType" : {
+      "name" : "MLModelType_mlProgram"
+    },
+    "userDefinedMetadata" : {
+      "com.github.apple.coremltools.conversion_date" : "2026-04-27",
+      "com.github.apple.coremltools.source" : "torch==2.11.0",
+      "com.github.apple.coremltools.version" : "9.0",
+      "com.github.apple.coremltools.source_dialect" : "TorchScript"
+    },
+    "inputSchema" : [
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 2...512",
+        "shapeRange" : "[[1, 1], [2, 512]]",
+        "formattedType" : "MultiArray (Int32 1 × 48)",
+        "type" : "MultiArray",
+        "shape" : "[1, 48]",
+        "name" : "input_ids",
+        "shortDescription" : ""
+      },
+      {
+        "dataType" : "Int32",
+        "hasShapeFlexibility" : "1",
+        "isOptional" : "0",
+        "shapeFlexibility" : "1 × 2...512",
+        "shapeRange" : "[[1, 1], [2, 512]]",
+        "formattedType" : "MultiArray (Int32 1 × 48)",
+        "type" : "MultiArray",
+        "shape" : "[1, 48]",
+        "name" : "attention_mask",
+        "shortDescription" : ""
+      }
+    ],
+    "generatedClassName" : "KokoroAlbert",
+    "method" : "predict"
+  }
+]
