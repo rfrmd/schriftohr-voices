@@ -93,6 +93,48 @@ class Lab:
         return np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
 
 
+def refine():
+    """John's ear (2026-10-09, 01:40): heart-male160 ("John") and Michael's timbre with Heart's
+    prosody at pitch 0.60 ("Jeremiah") are both good; refine a tad lower toward bass."""
+    heart = pack("af_heart")
+    males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
+                               "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
+    females = [heart] + [pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
+    d = np.mean(males, axis=0) - np.mean(females, axis=0)
+    michael = pack("am_michael")
+    halves = lambda timbre, prosody: np.concatenate([timbre[:, :128], prosody[:, 128:]], axis=1)
+    john = heart + 1.6 * d
+    jeremiah = halves(michael, heart)
+    yield "john", john, 1.0, "John as heard: Heart moved 1.6 units toward male"
+    yield "john-f092", john, 0.92, "John, pitch scaled 0.92"
+    yield "john-f085", john, 0.85, "John, pitch scaled 0.85"
+    yield "john-180", heart + 1.8 * d, 1.0, "Heart moved 1.8 units toward male"
+    yield "john-180-f092", heart + 1.8 * d, 0.92, "1.8 units, pitch scaled 0.92"
+    yield "john-200", heart + 2.0 * d, 1.0, "Heart moved 2.0 units toward male"
+    yield "jeremiah", jeremiah, 0.60, "Jeremiah as heard: Michael's timbre, Heart's prosody, pitch 0.60"
+    yield "jeremiah-f054", jeremiah, 0.54, "Jeremiah, pitch scaled 0.54"
+    yield "jeremiah-f048", jeremiah, 0.48, "Jeremiah, pitch scaled 0.48"
+    yield "jeremiah-deeper-timbre-f056", halves(michael + 0.5 * d, heart), 0.56, "Michael's timbre moved half a unit further male, Heart's prosody, pitch 0.56"
+    yield "jeremiah-deeper-timbre-f050", halves(michael + 0.5 * d, heart), 0.50, "the same timbre, pitch 0.50"
+
+
+def refine2():
+    """Jeremiah with the pitch lowered through the style vector alone (Heart's prosody half
+    moved along the male direction), so the voice is a plain pack and needs no pitch knob."""
+    heart = pack("af_heart")
+    males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
+                               "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
+    females = [heart] + [pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
+    d = np.mean(males, axis=0) - np.mean(females, axis=0)
+    michael = pack("am_michael")
+    halves = lambda timbre, prosody: np.concatenate([timbre[:, :128], prosody[:, 128:]], axis=1)
+    for lam in (1.4, 1.6, 1.8, 2.0):
+        yield f"jeremiah-style{int(lam*100)}", halves(michael, heart + lam * d), 1.0, f"Michael's timbre, Heart's prosody moved {lam} units toward male, no pitch scaling"
+    yield "jeremiah-style160-timbre-plus", halves(michael + 0.5 * d, heart + 1.6 * d), 1.0, "Michael's timbre half a unit further male, Heart's prosody moved 1.6 units"
+    yield "john-160", heart + 1.6 * d, 1.0, "John (1.6 units), the pack as it would ship"
+    yield "john-180", heart + 1.8 * d, 1.0, "John at 1.8 units, the pack as it would ship"
+
+
 def recipes():
     heart = pack("af_heart")
     males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
@@ -119,10 +161,20 @@ def recipes():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--only", default="")
+    ap.add_argument("--refine", action="store_true", help="the John and Jeremiah refinements")
+    ap.add_argument("--refine2", action="store_true", help="Jeremiah lowered through the style vector alone; the packs as they would ship")
+    ap.add_argument("--packs", default="", help="write each recipe's [510, 256] pack as <name>.bin into this folder, with SHA256SUMS")
     a = ap.parse_args(); out = Path(a.out).expanduser(); out.mkdir(parents=True, exist_ok=True)
     lab = Lab()
     rows = ["| file | recipe | median pitch Hz | length s |", "|---|---|---|---|"]
-    for name, voice, f0s, note in recipes():
+    import hashlib
+    packs_dir = Path(a.packs).expanduser() if a.packs else None
+    if packs_dir: packs_dir.mkdir(parents=True, exist_ok=True); sums = []
+    for name, voice, f0s, note in (refine2() if a.refine2 else refine() if a.refine else recipes()):
+        if packs_dir and f0s == 1.0:
+            raw = voice.astype(np.float32).tobytes(); (packs_dir / f"{name}.bin").write_bytes(raw)
+            sums.append(f"{hashlib.sha256(raw).hexdigest()}  {name}.bin")
+            (packs_dir / "SHA256SUMS").write_text("\n".join(sums) + "\n")
         if a.only and name not in a.only.split(","):
             continue
         x = lab.render(voice, f0_scale=f0s)
@@ -130,7 +182,7 @@ if __name__ == "__main__":
         write_wav(out / f"{name}.wav", x)
         row = f"| {name}.wav | {note} | {f0:.0f} | {len(x) / 24000:.1f} |"
         print("LAB " + row, flush=True); rows.append(row)
-    (out / "README.md").write_text("# A male voice from Heart's style vectors, 2026-10-09\n\n"
+    (out / "README.md").write_text(("# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n" if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
         "Rendered by the PyTorch Kokoro (the same weights as the app), the probe passage. "
         "Speaking pitch for reference: bass about 85 to 100 Hz, baritone 100 to 125, tenor 125 to 160. "
         "Heart measured 202, Michael 121, Lewis 100.\n\n" + "\n".join(rows) + "\n")

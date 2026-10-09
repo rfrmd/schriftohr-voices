@@ -15,7 +15,7 @@ With --no-istft the stage ends at the spectrum and Swift finishes the inverse ST
 
     cd kokoro-coreml-export && uv run python ../export-ane-generator.py --buckets 3s --out ../kokoro-coreml-ane
 """
-import argparse, sys
+import argparse, math, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -158,6 +158,41 @@ class SliceReflectPad(nn.Module):
         return torch.cat([x[:, :, 1:2], x], dim=2)
 
 
+def _snake(x, alpha):
+    """x + sin(alpha x)^2 / alpha, with 1/alpha split into two fp16-sized factors when it is
+    too large for fp16 (noise_res[1].alpha2[0] has 1/alpha above 65504, so coremltools kept
+    that one multiply at fp32 and the Neural Engine handed it to the processor)."""
+    inv = 1.0 / alpha
+    peak = float(inv.abs().max())
+    if peak <= 60000.0:
+        return x + inv * (torch.sin(alpha * x) ** 2)
+    scale = 2.0 ** math.ceil(math.log2(peak / 60000.0))
+    return x + ((inv / scale) * (torch.sin(alpha * x) ** 2)) * scale
+
+
+def _resblock_forward(self, x, s, m=None):
+    """AdaINResBlock1.forward as upstream writes it, with the Snake in fp16-safe form."""
+    for c1, c2, n1, n2, a1, a2 in zip(self.convs1, self.convs2, self.adain1, self.adain2, self.alpha1, self.alpha2):
+        xt = n1(x, s, m)
+        xt = _snake(xt, a1)
+        xt = c1(xt)
+        xt = n2(xt, s, m)
+        xt = _snake(xt, a2)
+        xt = c2(xt)
+        x = xt + x
+    return x
+
+
+def rewrite_snakes(generator) -> int:
+    import types
+    n = 0
+    for module in generator.modules():
+        if type(module).__name__ == "AdaINResBlock1":
+            module.forward = types.MethodType(_resblock_forward, module)
+            n += 1
+    return n
+
+
 def _exact(before, after, x, what):
     with torch.no_grad():
         ref, got = before(x), after(x)
@@ -224,6 +259,44 @@ if CUT:
     print(f"ANE rewrite: the generator is cut at point {CUT}")
 
 
+def _align_nearest(m, target_t):
+    """Upstream's mask alignment (nearest lower index, a gather the Neural Engine leaves on the
+    processor) as nearest-neighbour upsampling by the integer factor plus a replicate pad for
+    the frames past cur_t * factor. The same numbers; the ANE runs upsample_nearest natively."""
+    if m is None:
+        return None
+    target_t, cur_t = int(target_t), int(m.shape[-1])
+    if cur_t == target_t:
+        return m
+    factor = target_t // cur_t
+    up = F.interpolate(m, scale_factor=factor, mode="nearest")
+    extra = target_t - up.shape[-1]
+    return F.pad(up, (0, extra), mode="replicate") if extra > 0 else up
+
+
+if not os.environ.get("KOKORO_KEEP_GATHER"):
+    from export_synth import wrappers as _w2
+    _upstream_align = _w2.GeneratorFromHar._align_mask_to
+    torch.manual_seed(3)
+    for cur, tgt in ((240, 2400), (2400, 14401), (48, 480)):
+        probe = (torch.arange(cur) < cur * 0.7).float().reshape(1, 1, cur)
+        a, b = _upstream_align(probe, tgt), _align_nearest(probe, tgt)
+        assert a.shape == b.shape and torch.equal(a, b), ("mask alignment", cur, tgt)
+    _w2.GeneratorFromHar._align_mask_to = staticmethod(_align_nearest)
+    print("ANE rewrite: mask alignment by nearest upsampling (checked equal to upstream's gather)")
+
+if os.environ.get("KOKORO_FP16_ALL"):
+    import coremltools as _ct
+    _convert = _ct.convert
+    def _convert_all_fp16(*args, **kwargs):
+        if kwargs.get("compute_precision") is not None:
+            kwargs["compute_precision"] = _ct.transform.FP16ComputePrecision(op_selector=lambda op: True)
+        return _convert(*args, **kwargs)
+    _ct.convert = _convert_all_fp16
+    cv.ct.convert = _convert_all_fp16
+    print("ANE rewrite: every op at fp16 (no fp32 islands)")
+
+
 def _unmask(generator):
     """Every AdaIN takes its statistics over the whole bucket, mask ignored, and the mask
     alignment (a gather per resolution) is gone. A diagnostic: it asks whether the mask
@@ -257,6 +330,9 @@ def _rewrite_both(generator):
             generator.noise_convs[i] = new
             noise += 1
     dil = rewrite_dilated(generator)
+    if not os.environ.get("KOKORO_KEEP_SNAKE"):
+        blocks = rewrite_snakes(generator)
+        print(f"ANE rewrite: Snake in fp16-safe form in {blocks} resblocks")
     if not os.environ.get("KOKORO_KEEP_REFLECT"):
         pad = SliceReflectPad()
         _exact(generator.reflection_pad, pad, torch.randn(1, 128, 97), "slice reflect pad")
