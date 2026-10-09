@@ -149,6 +149,15 @@ class PolyphaseStrided(nn.Module):
         return y[:, :, :out_len]
 
 
+class SliceReflectPad(nn.Module):
+    """ReflectionPad1d((1, 0)) as a slice and a concat: the same frame, no pad op.
+    The Neural Engine compiler refuses the generator with the reflection pad in it
+    (found by bisection, 2026-10-09) and takes it with this."""
+
+    def forward(self, x):
+        return torch.cat([x[:, :, 1:2], x], dim=2)
+
+
 def _exact(before, after, x, what):
     with torch.no_grad():
         ref, got = before(x), after(x)
@@ -170,6 +179,12 @@ def _cut_forward(self, x_pre, ref_s, har, mask=None, mask_x10=None, mask_x60=Non
     from export_synth import wrappers
     s = ref_s[:, : wrappers.CoreMLExportConstants.VOICE_BASELINE_DIM]
     gen = self.generator
+    # KOKORO_REFLECT=identity|zero swaps the reflection pad (diagnostic, not exact).
+    reflect = os.environ.get("KOKORO_REFLECT")
+    if reflect == "identity" and not isinstance(gen.reflection_pad, nn.Identity):
+        gen.reflection_pad = nn.Identity()
+    elif reflect == "zero" and not isinstance(gen.reflection_pad, nn.ConstantPad1d):
+        gen.reflection_pad = nn.ConstantPad1d((1, 0), 0.0)
     x = x_pre
     cur_mask = mask
     for i in range(gen.num_upsamples):
@@ -242,6 +257,10 @@ def _rewrite_both(generator):
             generator.noise_convs[i] = new
             noise += 1
     dil = rewrite_dilated(generator)
+    if not os.environ.get("KOKORO_KEEP_REFLECT"):
+        pad = SliceReflectPad()
+        _exact(generator.reflection_pad, pad, torch.randn(1, 128, 97), "slice reflect pad")
+        generator.reflection_pad = pad
     if NO_MASK:
         _unmask(generator)
     print(f"ANE rewrite: {ups} upsample layers and {noise} strided noise convolutions in polyphase form, "
