@@ -135,6 +135,21 @@ def refine2():
     yield "john-180", heart + 1.8 * d, 1.0, "John at 1.8 units, the pack as it would ship"
 
 
+def pace():
+    """John's ear (02:00): John has the cleanest pitch, John at 0.85 the better pace. The pitch
+    scale changes no timing; this is the real pace knob (Kokoro's speed) on John."""
+    heart = pack("af_heart")
+    males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
+                               "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
+    females = [heart] + [pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
+    d = np.mean(males, axis=0) - np.mean(females, axis=0)
+    john = heart + 1.6 * d
+    yield "john-speed095", john, 1.0, 0.95, "John, pace 0.95"
+    yield "john-speed090", john, 1.0, 0.90, "John, pace 0.90"
+    yield "john-f092-speed095", john, 0.92, 0.95, "John, pitch 0.92, pace 0.95"
+    yield "john-f085-speed100", john, 0.85, 1.00, "John, pitch 0.85 (the one heard), pace 1.0, for reference"
+
+
 def recipes():
     heart = pack("af_heart")
     males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
@@ -163,6 +178,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--only", default="")
     ap.add_argument("--refine", action="store_true", help="the John and Jeremiah refinements")
     ap.add_argument("--refine2", action="store_true", help="Jeremiah lowered through the style vector alone; the packs as they would ship")
+    ap.add_argument("--pace", action="store_true", help="John at slower paces")
     ap.add_argument("--packs", default="", help="write each recipe's [510, 256] pack as <name>.bin into this folder, with SHA256SUMS")
     a = ap.parse_args(); out = Path(a.out).expanduser(); out.mkdir(parents=True, exist_ok=True)
     lab = Lab()
@@ -170,19 +186,20 @@ if __name__ == "__main__":
     import hashlib
     packs_dir = Path(a.packs).expanduser() if a.packs else None
     if packs_dir: packs_dir.mkdir(parents=True, exist_ok=True); sums = []
-    for name, voice, f0s, note in (refine2() if a.refine2 else refine() if a.refine else recipes()):
+    items = [(n, v, f, 1.0, note) for n, v, f, note in (refine2() if a.refine2 else refine() if a.refine else recipes())] if not a.pace else list(pace())
+    for name, voice, f0s, speed, note in items:
         if packs_dir and f0s == 1.0:
             raw = voice.astype(np.float32).tobytes(); (packs_dir / f"{name}.bin").write_bytes(raw)
             sums.append(f"{hashlib.sha256(raw).hexdigest()}  {name}.bin")
             (packs_dir / "SHA256SUMS").write_text("\n".join(sums) + "\n")
         if a.only and name not in a.only.split(","):
             continue
-        x = lab.render(voice, f0_scale=f0s)
+        x = lab.render(voice, f0_scale=f0s, speed=speed)
         f0 = median_f0(x, 24000)
         write_wav(out / f"{name}.wav", x)
         row = f"| {name}.wav | {note} | {f0:.0f} | {len(x) / 24000:.1f} |"
         print("LAB " + row, flush=True); rows.append(row)
-    (out / "README.md").write_text(("# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n" if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
+    (out / "README.md").write_text(("# John at slower paces, 2026-10-09\n\n" if a.pace else "# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n" if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
         "Rendered by the PyTorch Kokoro (the same weights as the app), the probe passage. "
         "Speaking pitch for reference: bass about 85 to 100 Hz, baritone 100 to 125, tenor 125 to 160. "
         "Heart measured 202, Michael 121, Lewis 100.\n\n" + "\n".join(rows) + "\n")

@@ -63,6 +63,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--text", default="The water lay still as glass, and the far bank was lost in mist.")
     ap.add_argument("--units", default="CPU_AND_NE", choices=["CPU_AND_NE", "CPU_ONLY", "ALL"])
+    ap.add_argument("--dump", default="", help="write the stage inputs and the PyTorch reference as raw float32 files into <dir>/inputs-<bucket>s, for the device probe")
+    ap.add_argument("--voices", default="heart,heart-male160")
     a = ap.parse_args(); out = Path(a.out).expanduser(); out.mkdir(parents=True, exist_ok=True)
     cfg, ckpt = CLONE / "checkpoints/config.json", CLONE / "checkpoints/kokoro-v1_0.pth"
     model = KModel(config=str(cfg), model=str(ckpt), disable_complex=True).eval()
@@ -72,7 +74,7 @@ def main():
     males = [lab.pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck", "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
     females = [heart] + [lab.pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
     direction = np.mean(males, axis=0) - np.mean(females, axis=0)
-    voices = {"heart": heart, "heart-male160": heart + 1.6 * direction}
+    voices = {k: v for k, v in {"heart": heart, "heart-male160": heart + 1.6 * direction}.items() if k in a.voices.split(",")}
     units = getattr(ct.ComputeUnit, a.units)
     rows = ["| voice | bucket | reference s | corr | SNR dB | max diff / max ref | stage ms |", "|---|---|---|---|---|---|---|"]
     for vname, vpack in voices.items():
@@ -86,6 +88,13 @@ def main():
         x_pre, ref_s, har, _, _, mask = build_decoder_har_post_inputs_np(model.decoder, vi, bucket, shapes["x_pre"][-1], shapes["har"][-1], warn_geometry=False)
         feed = {"x_pre": x_pre, "ref_s": ref_s, "har": har}
         if "mask" in shapes: feed["mask"] = mask
+        if a.dump:
+            import json
+            d = Path(a.dump).expanduser() / f"inputs-{bucket}s"; d.mkdir(parents=True, exist_ok=True)
+            for k, v in feed.items(): v.astype(np.float32).tofile(d / f"{k}.bin")
+            reference.astype(np.float32).tofile(d / "reference.bin")
+            (d / "shapes.json").write_text(json.dumps({k: list(v.shape) for k, v in feed.items()} | {"reference": [len(reference)], "text": a.text, "voice": vname}))
+            print("DUMP", d)
         import time
         mlmodel.predict(feed)                                       # warm
         t0 = time.perf_counter(); outputs = mlmodel.predict(feed); ms = (time.perf_counter() - t0) * 1000

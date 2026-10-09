@@ -162,11 +162,20 @@ def _snake(x, alpha):
     """x + sin(alpha x)^2 / alpha, with 1/alpha split into two fp16-sized factors when it is
     too large for fp16 (noise_res[1].alpha2[0] has 1/alpha above 65504, so coremltools kept
     that one multiply at fp32 and the Neural Engine handed it to the processor)."""
-    # Division by alpha, not multiplication by 1/alpha: the 1/alpha constant of
-    # noise_res[1].alpha2[0] has entries fp16 would flatten (alpha up to 1e4 there), and
-    # coremltools keeps such a constant at fp32, which puts that one multiply, with a cast
-    # on each side, on the processor in the middle of the Neural Engine program.
-    return x + (torch.sin(alpha * x) ** 2) / alpha
+    # sin(ax)^2 / a written as (sin(ax) * a^-1/2)^2. The 1/alpha constant of
+    # noise_res[1].alpha2[0] (alpha down to 9.5e-5) is one coremltools keeps at fp32, which put
+    # that multiply, with a cast on each side, on the processor in the middle of the Neural
+    # Engine program. Dividing by alpha instead moved it (2 s: 1245 of 1245 ops on the ANE) but
+    # risks fp16 underflow in sin^2 for tiny alpha; a^-1/2 is 0.7 to 103, sin(ax) * a^-1/2 is
+    # about sqrt(a) * x, and both live comfortably in fp16. The same arithmetic in fp32.
+    mode = os.environ.get("KOKORO_SNAKE", "sqrt")
+    if mode == "div":
+        return x + (torch.sin(alpha * x) ** 2) / alpha
+    # Some alphas are negative (down to -0.026): the sign rides as its own ±1 factor.
+    root = alpha.detach().abs().rsqrt()
+    sign = torch.sign(alpha.detach())
+    scaled = torch.sin(alpha * x) * root
+    return x + sign * (scaled * scaled)
 
 
 def _resblock_forward(self, x, s, m=None):
