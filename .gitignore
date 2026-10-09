@@ -1,0 +1,2 @@
+kokoro-weights/*.pth
+third-party/*.whl
