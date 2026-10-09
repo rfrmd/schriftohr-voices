@@ -158,6 +158,71 @@ def _exact(before, after, x, what):
 
 
 NO_ISTFT = "--no-istft" in sys.argv
+NO_MASK = "--no-mask" in sys.argv
+import os
+CUT = int(os.environ.get("KOKORO_CUT", "0"))
+
+
+def _cut_forward(self, x_pre, ref_s, har, mask=None, mask_x10=None, mask_x60=None):
+    """Upstream GeneratorFromHar.forward (fixed shapes), returning early at KOKORO_CUT:
+    1 after the first upsample and noise add, 2 after the first resblock group, 3 after the
+    second upsample and noise add, 4 after the second resblock group. A bisection aid."""
+    from export_synth import wrappers
+    s = ref_s[:, : wrappers.CoreMLExportConstants.VOICE_BASELINE_DIM]
+    gen = self.generator
+    x = x_pre
+    cur_mask = mask
+    for i in range(gen.num_upsamples):
+        x = F.leaky_relu(x, negative_slope=0.1)
+        x_source = gen.noise_convs[i](har)
+        m_source = self._align_mask_to(cur_mask, x_source.shape[-1])
+        x_source = gen.noise_res[i](x_source, s, m=m_source)
+        x = gen.ups[i](x)
+        if i == gen.num_upsamples - 1:
+            x = gen.reflection_pad(x)
+        tx, ts = x.size(2), x_source.size(2)
+        if ts < tx:
+            x_source = F.pad(x_source, (0, tx - ts))
+        elif ts > tx:
+            x_source = x_source[:, :, :tx]
+        x = x + x_source
+        if CUT == 1 + 2 * i:
+            return x
+        cur_mask = self._align_mask_to(cur_mask, x.shape[-1])
+        xs = None
+        for j in range(gen.num_kernels):
+            r = gen.resblocks[i * gen.num_kernels + j](x, s, m=cur_mask)
+            xs = r if xs is None else xs + r
+        x = xs / gen.num_kernels
+        if CUT == 2 + 2 * i:
+            return x
+    x = F.leaky_relu(x)
+    x = gen.conv_post(x)
+    spec = torch.exp(x[:, : gen.post_n_fft // 2 + 1, :])
+    phase = torch.sin(x[:, gen.post_n_fft // 2 + 1 :, :])
+    return gen.stft.inverse(spec, phase)
+
+
+if CUT:
+    from export_synth import wrappers as _w
+    _w.GeneratorFromHar.forward = _cut_forward
+    print(f"ANE rewrite: the generator is cut at point {CUT}")
+
+
+def _unmask(generator):
+    """Every AdaIN takes its statistics over the whole bucket, mask ignored, and the mask
+    alignment (a gather per resolution) is gone. A diagnostic: it asks whether the mask
+    arithmetic is what the Neural Engine compiler refuses. The app passes no mask today."""
+    import types
+    n = 0
+    for module in generator.modules():
+        if type(module).__name__ == "AdaIN1d":
+            original = type(module).forward
+            module.forward = types.MethodType(lambda self, x, s, m=None, _f=original: _f(self, x, s, None), module)
+            n += 1
+    from export_synth import wrappers
+    wrappers.GeneratorFromHar._align_mask_to = staticmethod(lambda m, target_t: None)
+    print(f"ANE rewrite: mask ignored in {n} AdaIN layers; mask alignment removed")
 
 def _rewrite_both(generator):
     torch.manual_seed(2)
@@ -177,6 +242,8 @@ def _rewrite_both(generator):
             generator.noise_convs[i] = new
             noise += 1
     dil = rewrite_dilated(generator)
+    if NO_MASK:
+        _unmask(generator)
     print(f"ANE rewrite: {ups} upsample layers and {noise} strided noise convolutions in polyphase form, "
           f"{dil} dilated convolutions turned into phase convolutions")
     if NO_ISTFT:
@@ -200,6 +267,7 @@ if __name__ == "__main__":
     ap.add_argument("--buckets", default="3s")
     ap.add_argument("--out", default=str(HERE / "kokoro-coreml-ane"))
     ap.add_argument("--no-istft", action="store_true", help="end the generator at the spectrum")
+    ap.add_argument("--no-mask", action="store_true", help="diagnostic: ignore the mask in every AdaIN")
     a = ap.parse_args()
     # A quick exactness check of the phase convolution on its own.
     torch.manual_seed(0)
