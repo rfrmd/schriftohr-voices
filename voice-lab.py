@@ -135,6 +135,31 @@ def refine2():
     yield "john-180", heart + 1.8 * d, 1.0, "John at 1.8 units, the pack as it would ship"
 
 
+def refine3():
+    """Jeremiah's TONE moved off Michael's (John, 2026-10-09: "in listening to jeremiah and michael
+    the tone sounds almost the same"). The shipped Jeremiah keeps Michael's timbre half whole, so its
+    tone is Michael's by construction; these move the timbre half while keeping the prosody half
+    (Heart moved 2.0 units toward male) that John chose."""
+    heart = pack("af_heart")
+    males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
+                               "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
+    females = [heart] + [pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
+    d = np.mean(males, axis=0) - np.mean(females, axis=0)
+    michael, onyx, lewis, george = pack("am_michael"), pack("am_onyx"), pack("bm_lewis"), pack("bm_george")
+    halves = lambda timbre, prosody: np.concatenate([timbre[:, :128], prosody[:, 128:]], axis=1)
+    prosody = heart + 2.0 * d
+    yield "jeremiah-as-shipped", halves(michael, prosody), 1.0, "the shipped Jeremiah: Michael's timbre, Heart's prosody at 2.0 units"
+    yield "jeremiah-t1", halves(michael + 1.0 * d, prosody), 1.0, "Michael's timbre moved a full unit further male"
+    yield "jeremiah-t2", halves(michael + 2.0 * d, prosody), 1.0, "Michael's timbre moved two units further male"
+    yield "jeremiah-t3", halves(0.5 * michael + 0.5 * (heart + 2.0 * d), prosody), 1.0, "timbre halfway between Michael and Heart-moved-male (John's timbre)"
+    yield "jeremiah-t4", halves(0.5 * michael + 0.5 * onyx, prosody), 1.0, "timbre halfway between Michael and Onyx, the pack's bass-baritone"
+    yield "jeremiah-t5", halves(onyx, prosody), 1.0, "Onyx's timbre whole, Heart's prosody at 2.0 units"
+    yield "jeremiah-t6", halves(0.5 * michael + 0.5 * lewis, prosody), 1.0, "timbre halfway between Michael and Lewis"
+    yield "jeremiah-t7", halves(george, prosody), 1.0, "George's timbre whole, Heart's prosody at 2.0 units"
+    yield "jeremiah-t8", halves(heart + 3.0 * d, prosody), 1.0, "Heart's own timbre moved three units male (no Michael at all)"
+    yield "michael-as-shipped", michael, 1.0, "Michael, for the comparison"
+
+
 def pace():
     """John's ear (02:00): John has the cleanest pitch, John at 0.85 the better pace. The pitch
     scale changes no timing; this is the real pace knob (Kokoro's speed) on John."""
@@ -178,6 +203,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--only", default="")
     ap.add_argument("--refine", action="store_true", help="the John and Jeremiah refinements")
     ap.add_argument("--refine2", action="store_true", help="Jeremiah lowered through the style vector alone; the packs as they would ship")
+    ap.add_argument("--refine3", action="store_true", help="Jeremiah's tone moved off Michael's: the timbre half varied, the prosody kept")
     ap.add_argument("--pace", action="store_true", help="John at slower paces")
     ap.add_argument("--packs", default="", help="write each recipe's [510, 256] pack as <name>.bin into this folder, with SHA256SUMS")
     a = ap.parse_args(); out = Path(a.out).expanduser(); out.mkdir(parents=True, exist_ok=True)
@@ -186,7 +212,7 @@ if __name__ == "__main__":
     import hashlib
     packs_dir = Path(a.packs).expanduser() if a.packs else None
     if packs_dir: packs_dir.mkdir(parents=True, exist_ok=True); sums = []
-    items = [(n, v, f, 1.0, note) for n, v, f, note in (refine2() if a.refine2 else refine() if a.refine else recipes())] if not a.pace else list(pace())
+    items = [(n, v, f, 1.0, note) for n, v, f, note in (refine3() if a.refine3 else refine2() if a.refine2 else refine() if a.refine else recipes())] if not a.pace else list(pace())
     for name, voice, f0s, speed, note in items:
         if packs_dir and f0s == 1.0:
             raw = voice.astype(np.float32).tobytes(); (packs_dir / f"{name}.bin").write_bytes(raw)
@@ -199,7 +225,7 @@ if __name__ == "__main__":
         write_wav(out / f"{name}.wav", x)
         row = f"| {name}.wav | {note} | {f0:.0f} | {len(x) / 24000:.1f} |"
         print("LAB " + row, flush=True); rows.append(row)
-    (out / "README.md").write_text(("# John at slower paces, 2026-10-09\n\n" if a.pace else "# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n" if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
+    (out / "README.md").write_text(("# John at slower paces, 2026-10-09\n\n" if a.pace else ("# Jeremiah's tone moved off Michael's, 2026-10-09\n\n" if a.refine3 else "# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n") if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
         "Rendered by the PyTorch Kokoro (the same weights as the app), the probe passage. "
         "Speaking pitch for reference: bass about 85 to 100 Hz, baritone 100 to 125, tenor 125 to 160. "
         "Heart measured 202, Michael 121, Lewis 100.\n\n" + "\n".join(rows) + "\n")
