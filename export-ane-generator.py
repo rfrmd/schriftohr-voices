@@ -168,7 +168,9 @@ def _snake(x, alpha):
     # Engine program. Dividing by alpha instead moved it (2 s: 1245 of 1245 ops on the ANE) but
     # risks fp16 underflow in sin^2 for tiny alpha; a^-1/2 is 0.7 to 103, sin(ax) * a^-1/2 is
     # about sqrt(a) * x, and both live comfortably in fp16. The same arithmetic in fp32.
-    mode = os.environ.get("KOKORO_SNAKE", "sqrt")
+    # Default "div": on real sentences the division form measured 20.2 dB (Heart) and 14.7 dB
+    # (John) against PyTorch on the Neural Engine; the square-root form 18.4 and 13.5.
+    mode = os.environ.get("KOKORO_SNAKE", "div")
     if mode == "div":
         return x + (torch.sin(alpha * x) ** 2) / alpha
     # Some alphas are negative (down to -0.026): the sign rides as its own ±1 factor.
