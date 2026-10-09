@@ -162,12 +162,11 @@ def _snake(x, alpha):
     """x + sin(alpha x)^2 / alpha, with 1/alpha split into two fp16-sized factors when it is
     too large for fp16 (noise_res[1].alpha2[0] has 1/alpha above 65504, so coremltools kept
     that one multiply at fp32 and the Neural Engine handed it to the processor)."""
-    inv = 1.0 / alpha
-    peak = float(inv.abs().max())
-    if peak <= 60000.0:
-        return x + inv * (torch.sin(alpha * x) ** 2)
-    scale = 2.0 ** math.ceil(math.log2(peak / 60000.0))
-    return x + ((inv / scale) * (torch.sin(alpha * x) ** 2)) * scale
+    # Division by alpha, not multiplication by 1/alpha: the 1/alpha constant of
+    # noise_res[1].alpha2[0] has entries fp16 would flatten (alpha up to 1e4 there), and
+    # coremltools keeps such a constant at fp32, which puts that one multiply, with a cast
+    # on each side, on the processor in the middle of the Neural Engine program.
+    return x + (torch.sin(alpha * x) ** 2) / alpha
 
 
 def _resblock_forward(self, x, s, m=None):
