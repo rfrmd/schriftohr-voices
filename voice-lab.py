@@ -160,6 +160,32 @@ def refine3():
     yield "michael-as-shipped", michael, 1.0, "Michael, for the comparison"
 
 
+def john2():
+    """John revision 2 (John, 2026-10-10: the shipped John carries "a very slight buzz to the voice"
+    on AirPods Pro, absent from the original voices; goal "Heart's speech pattern in a deeper timbre
+    without the buzz"). The shipped John moves BOTH halves 1.6 units toward male; the decoder's
+    timbre half, pushed that far off every real voice, is the likely source of the buzz. These keep
+    John's prosody half exactly (Heart's pattern, moved male) and bring the timbre half back toward
+    real voices; the last one moves the prosody instead, to show which half carries the buzz."""
+    heart = pack("af_heart")
+    males = [pack(n) for n in ["am_adam", "am_eric", "am_fenrir", "am_liam", "am_michael", "am_onyx", "am_puck",
+                               "bm_daniel", "bm_fable", "bm_george", "bm_lewis"]]
+    females = [heart] + [pack(n) for n in ["af_bella", "af_kore", "af_nicole", "af_nova", "af_sarah", "bf_emma", "bf_isabella"]]
+    d = np.mean(males, axis=0) - np.mean(females, axis=0)
+    michael, adam, liam = pack("am_michael"), pack("am_adam"), pack("am_liam")
+    halves = lambda timbre, prosody: np.concatenate([timbre[:, :128], prosody[:, 128:]], axis=1)
+    john = heart + 1.6 * d
+    yield "john-as-shipped", john, 1.0, "the shipped John: Heart moved 1.6 units toward male, both halves"
+    yield "john2-t12", halves(heart + 1.2 * d, john), 1.0, "timbre pulled back to 1.2 units, John's prosody"
+    yield "john2-t14", halves(heart + 1.4 * d, john), 1.0, "timbre pulled back to 1.4 units, John's prosody"
+    yield "john2-m30", halves(0.7 * (heart + 1.6 * d) + 0.3 * michael, john), 1.0, "John's timbre blended 30% toward Michael's"
+    yield "john2-m50", halves(0.5 * (heart + 1.6 * d) + 0.5 * michael, john), 1.0, "John's timbre blended 50% toward Michael's"
+    yield "john2-hm", halves(0.5 * heart + 0.5 * michael, john), 1.0, "timbre halfway between Heart and Michael (no extrapolation at all)"
+    yield "john2-ha", halves(0.4 * heart + 0.6 * adam, john), 1.0, "timbre 40% Heart, 60% Adam (no extrapolation)"
+    yield "john2-hl", halves(0.4 * heart + 0.6 * liam, john), 1.0, "timbre 40% Heart, 60% Liam (no extrapolation)"
+    yield "john2-p12", halves(john, heart + 1.2 * d), 1.0, "diagnostic: John's timbre kept, prosody pulled back to 1.2 units"
+
+
 def pace():
     """John's ear (02:00): John has the cleanest pitch, John at 0.85 the better pace. The pitch
     scale changes no timing; this is the real pace knob (Kokoro's speed) on John."""
@@ -205,6 +231,7 @@ if __name__ == "__main__":
     ap.add_argument("--refine2", action="store_true", help="Jeremiah lowered through the style vector alone; the packs as they would ship")
     ap.add_argument("--refine3", action="store_true", help="Jeremiah's tone moved off Michael's: the timbre half varied, the prosody kept")
     ap.add_argument("--pace", action="store_true", help="John at slower paces")
+    ap.add_argument("--john2", action="store_true", help="John revision 2: the timbre half brought back toward real voices, the prosody kept")
     ap.add_argument("--packs", default="", help="write each recipe's [510, 256] pack as <name>.bin into this folder, with SHA256SUMS")
     a = ap.parse_args(); out = Path(a.out).expanduser(); out.mkdir(parents=True, exist_ok=True)
     lab = Lab()
@@ -212,7 +239,7 @@ if __name__ == "__main__":
     import hashlib
     packs_dir = Path(a.packs).expanduser() if a.packs else None
     if packs_dir: packs_dir.mkdir(parents=True, exist_ok=True); sums = []
-    items = [(n, v, f, 1.0, note) for n, v, f, note in (refine3() if a.refine3 else refine2() if a.refine2 else refine() if a.refine else recipes())] if not a.pace else list(pace())
+    items = [(n, v, f, 1.0, note) for n, v, f, note in (john2() if a.john2 else refine3() if a.refine3 else refine2() if a.refine2 else refine() if a.refine else recipes())] if not a.pace else list(pace())
     for name, voice, f0s, speed, note in items:
         if packs_dir and f0s == 1.0:
             raw = voice.astype(np.float32).tobytes(); (packs_dir / f"{name}.bin").write_bytes(raw)
@@ -225,7 +252,7 @@ if __name__ == "__main__":
         write_wav(out / f"{name}.wav", x)
         row = f"| {name}.wav | {note} | {f0:.0f} | {len(x) / 24000:.1f} |"
         print("LAB " + row, flush=True); rows.append(row)
-    (out / "README.md").write_text(("# John at slower paces, 2026-10-09\n\n" if a.pace else ("# Jeremiah's tone moved off Michael's, 2026-10-09\n\n" if a.refine3 else "# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n") if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
+    (out / "README.md").write_text(("# John at slower paces, 2026-10-09\n\n" if a.pace else ("# John revision 2: the timbre half brought back, 2026-10-10\n\n" if a.john2 else "# Jeremiah's tone moved off Michael's, 2026-10-09\n\n" if a.refine3 else "# Jeremiah by style alone, and the packs as they would ship, 2026-10-09\n\n") if a.refine2 else "# John and Jeremiah, refined toward bass, 2026-10-09\n\n" if a.refine else "# A male voice from Heart's style vectors, 2026-10-09\n\n") +
         "Rendered by the PyTorch Kokoro (the same weights as the app), the probe passage. "
         "Speaking pitch for reference: bass about 85 to 100 Hz, baritone 100 to 125, tenor 125 to 160. "
         "Heart measured 202, Michael 121, Lewis 100.\n\n" + "\n".join(rows) + "\n")
