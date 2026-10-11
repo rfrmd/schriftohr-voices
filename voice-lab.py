@@ -184,6 +184,9 @@ def john2():
     yield "john2-ha", halves(0.4 * heart + 0.6 * adam, john), 1.0, "timbre 40% Heart, 60% Adam (no extrapolation)"
     yield "john2-hl", halves(0.4 * heart + 0.6 * liam, john), 1.0, "timbre 40% Heart, 60% Liam (no extrapolation)"
     yield "john2-p12", halves(john, heart + 1.2 * d), 1.0, "diagnostic: John's timbre kept, prosody pulled back to 1.2 units"
+    # For the ear's comparison: the two shipped voices John must stand apart from.
+    yield "michael-as-shipped", michael, 1.0, "Michael, the pack as it ships"
+    yield "jeremiah-as-shipped", halves(0.5 * michael + 0.5 * pack("am_onyx"), heart + 2.0 * d), 1.0, "Jeremiah as it ships (t4): timbre halfway Michael and Onyx, Heart's prosody at 2.0 units"
 
 
 def pace():
